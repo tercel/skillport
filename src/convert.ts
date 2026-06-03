@@ -376,6 +376,17 @@ function transformFile(
   body = relocateSharedPaths(body, path.dirname(destFile), bundleDir, spec.ns, sharedDirs).body;
   stats.subagents += sa.count;
 
+  // The frontmatter description is model-visible (Codex shows it in the skills
+  // list) and can carry Claude slash refs / tool names too — transform it too.
+  if (typeof data['description'] === 'string') {
+    let d = remapTools(data['description'], target);
+    d = adaptSubagents(d, target).body;
+    d = rewriteCrossRefs(d, namespaces).body;
+    d = rewriteSkillPaths(d, spec, currentSkills).body;
+    d = relocateSharedPaths(d, path.dirname(destFile), bundleDir, spec.ns, sharedDirs).body;
+    data['description'] = d;
+  }
+
   if (isRootSkill) data['name'] = isRootSkillName;
 
   const hasFrontmatter = /^---\n/.test(read(destFile));
@@ -455,10 +466,10 @@ function generateOrchestrator(
     `| Codex skill | Capability |\n|---|---|\n${rows}\n\n` +
     `When asked to run the full ${spec.ns} chain, follow the workflow below.\n\n---\n\n`;
 
+  const rawDesc = (pluginJson['description'] as string) ?? `${spec.ns} skill orchestrator`;
   const data: Record<string, unknown> = {
     name: spec.ns,
-    description:
-      (pluginJson['description'] as string) ?? `${spec.ns} skill orchestrator`,
+    description: rewriteCrossRefs(remapTools(rawDesc, target), namespaces).body,
   };
   write(path.join(bundleDir, 'SKILL.md'), joinFrontmatter(data, header + body));
 }
@@ -488,10 +499,11 @@ function verify(bundleDir: string): string[] {
     if (/^\s*@\.\.\//m.test(body)) {
       violations.push(`${f}: unresolved external @../ include remains`);
     }
-    // Gate B: no leftover Claude SLASH-command refs (the bare `<ns>:<skill>`
-    // colon form is the correct Codex skill name and is allowed).
+    // Gate B: no leftover Claude SLASH-command refs anywhere in the file
+    // (frontmatter description included — Codex shows it). The bare
+    // `<ns>:<skill>` colon form is the correct Codex name and is allowed.
     for (const ns of KNOWN_NAMESPACES) {
-      if (new RegExp(`/\\b${ns}:[a-z*]`).test(body)) {
+      if (new RegExp(`/\\b${ns}:[a-z*]`).test(md)) {
         violations.push(`${f}: leftover Claude-style slash ref "/${ns}:..."`);
         break;
       }

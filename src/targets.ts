@@ -51,8 +51,8 @@ export const CODEX: Target = {
   toolRemap: {
     AskUserQuestion: 'ask the user directly',
     TodoWrite: 'the update_plan tool',
-    WebFetch: 'a web fetch',
-    WebSearch: 'a web search',
+    WebFetch: 'web fetch',
+    WebSearch: 'web search',
   },
   // Codex built-in agents: default (general-purpose), worker (execution),
   // explorer (read-heavy). Spawned in isolated threads, results summarized back
