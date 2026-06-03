@@ -11,7 +11,7 @@ const FIXTURE = path.join(import.meta.dirname, 'fixtures', 'fixture-forge');
 const SPEC = { ns: 'fixture-forge', nonSkillDirs: ['shared'], aliases: {} };
 
 function convert() {
-  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'skillport-golden-'));
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-skill-bundler-golden-'));
   const r = convertPlugin(FIXTURE, CODEX, out, undefined, SPEC);
   const foo = fs.readFileSync(path.join(out, 'fixture-forge', 'foo', 'SKILL.md'), 'utf8');
   return { r, foo, out };
@@ -54,7 +54,7 @@ test('Task(subagent_type) adapted to a Codex subagent', () => {
 });
 
 test('pluginSkillNames includes the qualified root orchestrator skill', () => {
-  const plugin = fs.mkdtempSync(path.join(os.tmpdir(), 'skillport-plugin-names-'));
+  const plugin = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-skill-bundler-plugin-names-'));
   fs.mkdirSync(path.join(plugin, '.claude-plugin'), { recursive: true });
   fs.mkdirSync(path.join(plugin, 'skills', 'prd-generation'), { recursive: true });
   fs.writeFileSync(
@@ -68,4 +68,17 @@ test('pluginSkillNames includes the qualified root orchestrator skill', () => {
   assert.ok(names.has('spec-forge:spec-forge'), 'root orchestrator is a qualified Codex skill');
   assert.ok(names.has('spec-forge:prd'), 'subskill aliases remain qualified');
   assert.ok(!names.has('spec-forge'), 'bare namespace is not a Codex-visible skill name');
+});
+
+test('unregistered plugin converts via auto-derived spec (no registry entry)', () => {
+  const out = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-skill-bundler-generic-'));
+  // no specOverride, no `known` map — exercises resolvePlugin() fallback
+  const r = convertPlugin(FIXTURE, CODEX, out);
+  assert.deepEqual(r.violations, [], 'generic plugin passes all gates');
+  assert.ok(r.skills.includes('foo'), 'foo skill produced');
+
+  const foo = fs.readFileSync(path.join(out, 'fixture-forge', 'foo', 'SKILL.md'), 'utf8');
+  assert.ok(!/@\.\.\/shared\//.test(foo), 'shared include inlined even without registry');
+  assert.ok(foo.includes('$spec-forge:prd'), 'cross-plugin ref to a registered ns rewritten');
+  assert.ok(foo.includes('$fixture-forge:foo'), "plugin's own-namespace self-ref rewritten");
 });

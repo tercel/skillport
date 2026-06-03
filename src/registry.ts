@@ -1,6 +1,10 @@
-// Known Claude Code plugins in this workspace. Hardcoded on purpose:
-// perfect cross-reference rewriting (including cross-plugin refs like
-// code-forge -> spec-forge) requires knowing every namespace and alias map.
+// Known Claude Code plugins in this workspace. Registered on purpose: precise
+// cross-reference rewriting (including cross-plugin refs like code-forge ->
+// spec-forge) and alias maps (prd-generation -> prd) need the namespace + alias
+// data. Registration is OPTIONAL — unregistered plugins convert via the generic
+// fallback in resolvePlugin() (empty aliases, SKILL.md-presence skill detection,
+// own-namespace cross-ref rewriting). Register a plugin only when you need its
+// aliases or want its namespace recognized in OTHER plugins' cross-references.
 
 export interface PluginSpec {
   /** Plugin namespace (matches .claude-plugin/plugin.json name). */
@@ -13,6 +17,11 @@ export interface PluginSpec {
    * Only list entries that differ from the directory name.
    */
   aliases: Record<string, string>;
+  /**
+   * Reference directory names whose prose lazy-load paths (`../<dir>/x.md`) are
+   * relocated into a sibling `<ns>-<dir>` bundle dir. Defaults to ['shared'].
+   */
+  sharedDirs?: string[];
 }
 
 export const REGISTRY: Record<string, PluginSpec> = {
@@ -67,6 +76,22 @@ export function getPlugin(ns: string): PluginSpec {
     );
   }
   return spec;
+}
+
+/**
+ * Resolve a plugin spec, falling back to a generic default for unregistered
+ * plugins (so any standard Claude plugin converts). Registered specs always win,
+ * keeping the forge suites byte-identical. The default derives nothing special:
+ * empty aliases, no extra non-skill dirs (the SKILL.md presence check already
+ * excludes reference dirs), and the conventional ['shared'] relocation.
+ */
+export function resolvePlugin(ns: string): PluginSpec {
+  return REGISTRY[ns] ?? { ns, nonSkillDirs: [], aliases: {} };
+}
+
+/** Whether a namespace is a registered (forge) plugin. */
+export function isRegistered(ns: string): boolean {
+  return ns in REGISTRY;
 }
 
 /** Short alias for a skill directory (alias map or identity). */

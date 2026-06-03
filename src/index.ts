@@ -29,12 +29,12 @@ function parse(argv: string[]): Args {
 }
 
 function usage(): void {
-  process.stdout.write(`skillport — port Claude Code skill plugins to other agent platforms
+  process.stdout.write(`agent-skill-bundler — port Claude Code skill plugins to other agent platforms
 
 Usage:
-  skillport convert <pluginDir...> [--out <dir>] [--target codex] [--no-strict]
-  skillport verify  <bundleDir>
-  skillport install <bundleDir> [--codex-home <path>]
+  agent-skill-bundler convert <pluginDir...> [--out <dir>] [--target codex] [--no-strict]
+  agent-skill-bundler verify  <bundleDir>
+  agent-skill-bundler install <bundleDir> [--codex-home <path>]
 
 Notes:
   convert  fails (exit 1) if any conversion gate is violated, unless --no-strict.
@@ -87,7 +87,7 @@ function cmdConvert(a: Args): number {
     process.stdout.write(
       `\n✓ ${agents.length} custom agent(s) -> ${path.relative(process.cwd(), path.join(out, '.codex', 'agents'))}/\n` +
         `  ${target.customAgents.map((x) => x.name).join(', ')}\n` +
-        `  install with: skillport install <bundle>  (also copies agents to ~/.codex/agents)\n`,
+        `  install with: agent-skill-bundler install <bundle>  (also copies agents to ~/.codex/agents)\n`,
     );
   }
   if (bad && a.strict) {
@@ -161,7 +161,7 @@ function cmdVerify(a: Args): number {
     return 0;
   }
   const expected = expectedSkillNames(bundle);
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'skillport-verify-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-skill-bundler-verify-'));
   try {
     installBundle(bundle, tmp);
     const out = execFileSync('codex', ['debug', 'prompt-input', 'x'], {

@@ -1,13 +1,14 @@
-# skillport
+# agent-skill-bundler
 
 Port Claude Code skill plugins to other agent platforms. **Codex** is the first
-target; the pipeline is target-agnostic (see *Adding another target*). Built for
-this workspace's `*-forge` plugins specifically, so it does things a generic
-converter cannot — most importantly, resolve **cross-plugin** references
-(e.g. `code-forge` → `spec-forge`).
+target; the pipeline is target-agnostic (see *Adding another target*). Works on
+**any** standard Claude plugin, and is *tuned* for this workspace's `*-forge`
+plugins — registered ones get precise alias maps and **cross-plugin** reference
+rewriting (e.g. `code-forge` → `spec-forge`) that a generic converter can't do.
 
-Registered plugins: `spec-forge`, `code-forge`, `apcore-skills`, `theory-forge`,
-`research-forge`, `hype-forge` (see `src/registry.ts`).
+Registered plugins (optional, for precision): `spec-forge`, `code-forge`,
+`apcore-skills`, `theory-forge`, `research-forge`, `hype-forge` (see
+`src/registry.ts`). Unregistered plugins convert via a generic auto-derived spec.
 
 ## Why not an existing tool?
 
@@ -94,14 +95,14 @@ the prompt itself drives the behaviour; the custom agent only adds tuning.
 npm install && npm run build
 
 # convert one or more plugins (gates enforced)
-node dist/index.js convert ../spec-forge ../code-forge ../apcore-skills --out ./dist/codex
+agent-skill-bundler convert ../spec-forge ../code-forge ../apcore-skills --out ./dist/codex
 
 # verify a bundle actually loads in Codex (no model call; needs codex installed)
-node dist/index.js verify ./dist/codex/spec-forge
+agent-skill-bundler verify ./dist/codex/spec-forge
 
 # install a bundle into Codex (symlink; Codex follows it for discovery)
-node dist/index.js install ./dist/codex/spec-forge          # -> ~/.agents/skills/spec-forge
-node dist/index.js install ./dist/codex/spec-forge --codex-home /tmp/test
+agent-skill-bundler install ./dist/codex/spec-forge          # -> ~/.agents/skills/spec-forge
+agent-skill-bundler install ./dist/codex/spec-forge --codex-home /tmp/test
 ```
 
 In Codex: restart, then `/skills` or name a skill, e.g. `spec-forge:prd`.
@@ -110,7 +111,7 @@ In Codex: restart, then `/skills` or name a skill, e.g. `spec-forge:prd`.
 
 1. **Gates** — `convert` fails on dangling includes / leftover slash refs /
    name mismatch / unresolved shared paths. (Output is well-formed.)
-2. **Runtime discovery** — `skillport verify <bundle>` installs into a throwaway
+2. **Runtime discovery** — `agent-skill-bundler verify <bundle>` installs into a throwaway
    HOME and runs `codex debug prompt-input` (renders the model-visible prompt
    with **no model call, no cost**); asserts every expected `<ns>:<skill>` was
    discovered. (Codex actually loads them.)
@@ -129,8 +130,13 @@ would set `expandsAtIncludes: true` and use a different layout emitter.
 
 ## Scope
 
-Plugin namespaces and alias maps are hardcoded in `src/registry.ts`. Add an
-entry there before converting a new plugin.
+Works on **any** standard Claude plugin (`.claude-plugin/plugin.json` +
+`skills/<name>/SKILL.md`): unregistered plugins convert via a generic
+auto-derived spec (empty aliases, SKILL.md-presence skill detection,
+own-namespace cross-ref rewriting). **Registering** a plugin in
+`src/registry.ts` is optional and adds precision — short alias maps (e.g.
+`prd-generation` → `prd`) and recognition of its namespace inside *other*
+plugins' cross-references. The six `*-forge` suites are registered.
 
 ## License
 

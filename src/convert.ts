@@ -4,7 +4,7 @@ import YAML from 'yaml';
 import {
   REGISTRY,
   KNOWN_NAMESPACES,
-  getPlugin,
+  resolvePlugin,
   aliasFor,
   codexSkillName,
   codexQualifiedName,
@@ -28,7 +28,7 @@ export interface ConvertResult {
 export function pluginSkillNames(pluginDir: string): { ns: string; names: Set<string> } {
   const pj = path.join(pluginDir, '.claude-plugin', 'plugin.json');
   const ns = String((JSON.parse(read(pj)) as Record<string, unknown>)['name']);
-  const spec = getPlugin(ns);
+  const spec = resolvePlugin(ns);
   const names = new Set<string>([`${ns}:${ns}`]); // orchestrator root skill
   for (const d of listSkillDirs(path.join(pluginDir, 'skills'), spec)) {
     names.add(codexQualifiedName(spec, d)); // <ns>:<alias>
@@ -181,10 +181,13 @@ export function writeCustomAgents(outRoot: string, target: Target): string[] {
  *   /spec-forge      ->  $spec-forge:spec-forge   (orchestrator skill)
  *   spec-forge:prd   ->  spec-forge:prd           (unchanged prose reference)
  */
-function rewriteCrossRefs(body: string): { body: string; count: number } {
+function rewriteCrossRefs(
+  body: string,
+  namespaces: string[] = KNOWN_NAMESPACES,
+): { body: string; count: number } {
   let count = 0;
   let out = body;
-  for (const ns of KNOWN_NAMESPACES) {
+  for (const ns of namespaces) {
     // slash + namespaced invocation: /spec-forge:prd -> $spec-forge:prd
     const sub = new RegExp(`/\\b${ns}:([a-z][a-z0-9-]*)`, 'g');
     out = out.replace(sub, (_m, token: string) => {
@@ -232,14 +235,25 @@ function rewriteSkillPaths(
  * `<ns>-shared/` dir that travels in the bundle. Skips `@`-includes (handled by
  * inlining) and already-namespaced `<ns>-shared/` paths.
  */
-function relocateSharedPaths(body: string, sharedRelBase: string): { body: string; count: number } {
+function relocateSharedPaths(
+  body: string,
+  fileDir: string,
+  bundleDir: string,
+  ns: string,
+  sharedDirs: string[],
+): { body: string; count: number } {
   let count = 0;
-  const base = sharedRelBase === '' ? '.' : sharedRelBase;
+  const alt = sharedDirs.map((d) => d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
   // rest must end in a word/slash char so trailing sentence punctuation
   // (e.g. "see shared/contract-spec.md.") is not swallowed into the path.
-  const re = /(?<![\w@/-])((?:\.\.\/)+|skills\/)?shared\/([\w/-]+(?:\.[\w/-]+)*)/g;
-  const out = body.replace(re, (_m, _pfx, rest: string) => {
+  const re = new RegExp(
+    `(?<![\\w@/-])((?:\\.\\./)+|skills/)?(${alt})/([\\w/-]+(?:\\.[\\w/-]+)*)`,
+    'g',
+  );
+  const out = body.replace(re, (_m, _pfx: string, dir: string, rest: string) => {
     count++;
+    let base = path.relative(fileDir, path.join(bundleDir, `${ns}-${dir}`));
+    if (base === '') base = '.';
     return `${base}/${rest}`;
   });
   return { body: out, count };
@@ -342,10 +356,12 @@ function transformFile(
   target: Target,
   currentSkills: Set<string>,
   bundleDir: string,
+  namespaces: string[],
   stats: Stats,
 ): void {
   const { data, body: rawBody } = splitFrontmatter(read(destFile));
   const isRootSkill = isRootSkillName !== null;
+  const sharedDirs = spec.sharedDirs ?? ['shared'];
 
   let body = isRootSkill ? mergeInstructions(data, rawBody) : rawBody;
   const inc = resolveIncludes(body, srcDir, target);
@@ -353,12 +369,11 @@ function transformFile(
   body = remapTools(body, target);
   const sa = adaptSubagents(body, target);
   body = sa.body;
-  const cr = rewriteCrossRefs(body);
+  const cr = rewriteCrossRefs(body, namespaces);
   body = cr.body;
   const sp = rewriteSkillPaths(body, spec, currentSkills);
   body = sp.body;
-  const sharedRel = path.relative(path.dirname(destFile), path.join(bundleDir, `${spec.ns}-shared`));
-  body = relocateSharedPaths(body, sharedRel).body;
+  body = relocateSharedPaths(body, path.dirname(destFile), bundleDir, spec.ns, sharedDirs).body;
   stats.subagents += sa.count;
 
   if (isRootSkill) data['name'] = isRootSkillName;
@@ -378,6 +393,7 @@ function convertSkill(
   destSkillDir: string,
   currentSkills: Set<string>,
   bundleDir: string,
+  namespaces: string[],
   stats: Stats,
 ): void {
   // copy the whole skill dir (brings references/, assets/ along)
@@ -397,6 +413,7 @@ function convertSkill(
       target,
       currentSkills,
       bundleDir,
+      namespaces,
       stats,
     );
   }
@@ -409,6 +426,7 @@ function generateOrchestrator(
   bundleDir: string,
   skillDirs: string[],
   pluginJson: Record<string, unknown>,
+  namespaces: string[],
   stats: Stats,
 ): void {
   const cmdFile = path.join(pluginDir, 'commands', `${spec.ns}.md`);
@@ -423,9 +441,9 @@ function generateOrchestrator(
     const sa = adaptSubagents(body, target);
     body = sa.body;
     stats.subagents += sa.count;
-    body = rewriteCrossRefs(body).body;
+    body = rewriteCrossRefs(body, namespaces).body;
     body = rewriteSkillPaths(body, spec, new Set(skillDirs)).body;
-    body = relocateSharedPaths(body, `${spec.ns}-shared`).body;
+    body = relocateSharedPaths(body, bundleDir, bundleDir, spec.ns, spec.sharedDirs ?? ['shared']).body;
   } else {
     body = `# ${spec.ns}\n\nOrchestrator for the ${spec.ns} skill suite.\n`;
   }
@@ -541,7 +559,13 @@ export function convertPlugin(
   }
   const pluginJson = JSON.parse(read(pluginJsonPath)) as Record<string, unknown>;
   const ns = String(pluginJson['name']);
-  const spec = specOverride ?? getPlugin(ns);
+  // Registered (forge) specs win; unregistered plugins fall back to a generic
+  // default so any standard Claude plugin converts.
+  const spec = specOverride ?? resolvePlugin(ns);
+  const sharedDirs = spec.sharedDirs ?? ['shared'];
+  // Namespaces whose cross-refs we rewrite: registry + every plugin in this run
+  // + this plugin's own ns (so an unregistered plugin's self-refs also rewrite).
+  const namespaces = [...new Set([...KNOWN_NAMESPACES, ...(known?.keys() ?? []), ns])];
 
   const skillsRoot = path.join(pluginDir, 'skills');
   const skillDirs = listSkillDirs(skillsRoot, spec);
@@ -562,24 +586,26 @@ export function convertPlugin(
       path.join(bundleDir, destName),
       currentSkills,
       bundleDir,
+      namespaces,
       stats,
     );
     produced.push(destName);
   }
 
-  // Relocate the shared reference dir (theory-forge style lazy-loaded paths)
-  // into a sibling `<ns>-shared/` and transform its markdown too.
-  const sharedSrc = path.join(skillsRoot, 'shared');
-  if (exists(sharedSrc)) {
-    const sharedDest = path.join(bundleDir, `${ns}-shared`);
+  // Relocate each shared reference dir (theory-forge style lazy-loaded paths)
+  // into a sibling `<ns>-<dir>/` and transform its markdown too.
+  for (const dir of sharedDirs) {
+    const sharedSrc = path.join(skillsRoot, dir);
+    if (!exists(sharedSrc)) continue;
+    const sharedDest = path.join(bundleDir, `${ns}-${dir}`);
     fs.cpSync(sharedSrc, sharedDest, { recursive: true });
     for (const f of listMarkdown(sharedDest)) {
       const srcDir = path.dirname(path.join(sharedSrc, path.relative(sharedDest, f)));
-      transformFile(f, srcDir, null, spec, target, currentSkills, bundleDir, stats);
+      transformFile(f, srcDir, null, spec, target, currentSkills, bundleDir, namespaces, stats);
     }
   }
 
-  generateOrchestrator(spec, target, pluginDir, bundleDir, skillDirs, pluginJson, stats);
+  generateOrchestrator(spec, target, pluginDir, bundleDir, skillDirs, pluginJson, namespaces, stats);
 
   // Codex plugin manifest
   write(
