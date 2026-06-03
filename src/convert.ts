@@ -173,29 +173,29 @@ export function writeCustomAgents(outRoot: string, target: Target): string[] {
 }
 
 /**
- * Rewrite Claude slash-command cross-references into Codex skill names. Codex
- * auto-namespaces by bundle dir, so a skill is already `<ns>:<alias>` — the only
- * change needed is stripping the leading slash (the bare colon form is already
- * correct and is left untouched).
- *   /spec-forge:prd  ->  spec-forge:prd
- *   /spec-forge      ->  spec-forge        (orchestrator)
- *   spec-forge:prd   ->  spec-forge:prd    (unchanged)
+ * Rewrite Claude slash-command cross-references into Codex skill mentions. Codex
+ * auto-namespaces by bundle dir (a skill is `<ns>:<alias>`), and the `$`-prefix
+ * is Codex's user-invocation mention. A Claude slash command means "invoke this",
+ * so it maps to `$<ns>:<alias>`. Bare prose refs (no slash) are left untouched.
+ *   /spec-forge:prd  ->  $spec-forge:prd
+ *   /spec-forge      ->  $spec-forge:spec-forge   (orchestrator skill)
+ *   spec-forge:prd   ->  spec-forge:prd           (unchanged prose reference)
  */
 function rewriteCrossRefs(body: string): { body: string; count: number } {
   let count = 0;
   let out = body;
   for (const ns of KNOWN_NAMESPACES) {
-    // slash + namespaced form: /spec-forge:prd -> spec-forge:prd
+    // slash + namespaced invocation: /spec-forge:prd -> $spec-forge:prd
     const sub = new RegExp(`/\\b${ns}:([a-z][a-z0-9-]*)`, 'g');
     out = out.replace(sub, (_m, token: string) => {
       count++;
-      return `${ns}:${token}`;
+      return `$${ns}:${token}`;
     });
-    // bare orchestrator slash form: /spec-forge -> spec-forge
+    // bare orchestrator invocation: /spec-forge -> $spec-forge:spec-forge
     const orch = new RegExp(`/${ns}(?![\\w:-])`, 'g');
     out = out.replace(orch, () => {
       count++;
-      return ns;
+      return `$${ns}:${ns}`;
     });
   }
   return { body: out, count };
@@ -413,7 +413,7 @@ function generateOrchestrator(
 ): void {
   const cmdFile = path.join(pluginDir, 'commands', `${spec.ns}.md`);
   const rows = skillDirs
-    .map((d) => `| \`${codexQualifiedName(spec, d)}\` | ${aliasFor(spec, d)} |`)
+    .map((d) => `| \`$${codexQualifiedName(spec, d)}\` | ${aliasFor(spec, d)} |`)
     .join('\n');
 
   let body: string;

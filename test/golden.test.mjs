@@ -33,10 +33,11 @@ test('external @../shared include is inlined, not left dangling', () => {
   assert.ok(foo.includes('Shared Discipline'), 'shared content inlined');
 });
 
-test('cross-refs rewritten to Codex skill names (slash stripped, colon kept)', () => {
+test('slash-invocation cross-refs become $-prefixed Codex mentions', () => {
   const { foo } = convert();
-  assert.ok(foo.includes('spec-forge:prd'), 'spec-forge:prd present');
-  assert.ok(!/\/spec-forge:prd/.test(foo), 'leading slash stripped');
+  assert.ok(foo.includes('$spec-forge:prd'), '$spec-forge:prd present');
+  assert.ok(foo.includes('$spec-forge:review'), '$spec-forge:review present');
+  assert.ok(!/\/spec-forge:prd/.test(foo), 'no leftover slash form');
 });
 
 test('frontmatter instructions merged into body', () => {
