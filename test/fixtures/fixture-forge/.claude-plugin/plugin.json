@@ -1,5 +1,5 @@
 {
   "name": "fixture-forge",
   "version": "0.0.1",
-  "description": "Fixture plugin for skillport golden tests."
+  "description": "Fixture plugin for agent-skill-bundler golden tests."
 }
