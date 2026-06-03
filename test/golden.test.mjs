@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { convertPlugin } from '../dist/convert.js';
+import { convertPlugin, pluginSkillNames } from '../dist/convert.js';
 import { CODEX } from '../dist/targets.js';
 
 const FIXTURE = path.join(import.meta.dirname, 'fixtures', 'fixture-forge');
@@ -50,4 +50,21 @@ test('Task(subagent_type) adapted to a Codex subagent', () => {
   assert.ok(!/Task\(subagent_type/.test(foo), 'no raw Task(subagent_type) remains');
   assert.ok(foo.includes('a subagent (Codex'), 'adapted phrasing present');
   assert.equal(r.subagents, 1, 'one subagent adapted');
+});
+
+test('pluginSkillNames includes the qualified root orchestrator skill', () => {
+  const plugin = fs.mkdtempSync(path.join(os.tmpdir(), 'skillport-plugin-names-'));
+  fs.mkdirSync(path.join(plugin, '.claude-plugin'), { recursive: true });
+  fs.mkdirSync(path.join(plugin, 'skills', 'prd-generation'), { recursive: true });
+  fs.writeFileSync(
+    path.join(plugin, '.claude-plugin', 'plugin.json'),
+    JSON.stringify({ name: 'spec-forge' }),
+  );
+  fs.writeFileSync(path.join(plugin, 'skills', 'prd-generation', 'SKILL.md'), '# PRD\n');
+
+  const { names } = pluginSkillNames(plugin);
+
+  assert.ok(names.has('spec-forge:spec-forge'), 'root orchestrator is a qualified Codex skill');
+  assert.ok(names.has('spec-forge:prd'), 'subskill aliases remain qualified');
+  assert.ok(!names.has('spec-forge'), 'bare namespace is not a Codex-visible skill name');
 });

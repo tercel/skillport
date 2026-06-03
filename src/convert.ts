@@ -29,7 +29,7 @@ export function pluginSkillNames(pluginDir: string): { ns: string; names: Set<st
   const pj = path.join(pluginDir, '.claude-plugin', 'plugin.json');
   const ns = String((JSON.parse(read(pj)) as Record<string, unknown>)['name']);
   const spec = getPlugin(ns);
-  const names = new Set<string>([ns]); // orchestrator (bare suite name)
+  const names = new Set<string>([`${ns}:${ns}`]); // orchestrator root skill
   for (const d of listSkillDirs(path.join(pluginDir, 'skills'), spec)) {
     names.add(codexQualifiedName(spec, d)); // <ns>:<alias>
   }
