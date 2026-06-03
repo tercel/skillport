@@ -1,0 +1,39 @@
+{
+  "name": "skillport",
+  "version": "0.1.0",
+  "description": "Port Claude Code skill plugins to other agent platforms (Codex now; Gemini/OpenCode/Cursor via target adapters) — namespace-prefixed flat skills, inlined shared includes, cross-plugin reference rewriting, and self-enforced conversion gates.",
+  "type": "module",
+  "bin": {
+    "skillport": "./dist/index.js"
+  },
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/*.test.mjs",
+    "convert": "node dist/index.js convert"
+  },
+  "keywords": [
+    "claude-code",
+    "codex",
+    "skills",
+    "agent-skills",
+    "converter",
+    "cli"
+  ],
+  "author": "tercel",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "yaml": "^2.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}
