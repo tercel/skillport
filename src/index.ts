@@ -46,7 +46,10 @@ Notes:
 
 function cmdConvert(a: Args): number {
   const target = getTarget(a.target);
-  const out = path.resolve(a.out ?? path.join(process.cwd(), 'dist', target.id));
+  // Default output dir is `out/<target>` — deliberately NOT under `dist/`, which
+  // holds the compiled tool and is the npm-published artifact. Keeping conversion
+  // output separate means the published package never carries converted bundles.
+  const out = path.resolve(a.out ?? path.join(process.cwd(), 'out', target.id));
   const plugins = a._.slice(1);
   if (plugins.length === 0) {
     process.stderr.write('convert: need at least one plugin directory\n');

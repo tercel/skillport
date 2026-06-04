@@ -95,14 +95,14 @@ the prompt itself drives the behaviour; the custom agent only adds tuning.
 npm install && npm run build
 
 # convert one or more plugins (gates enforced)
-agent-skill-bundler convert ../spec-forge ../code-forge ../apcore-skills --out ./dist/codex
+agent-skill-bundler convert ../spec-forge ../code-forge ../apcore-skills --out ./out/codex
 
 # verify a bundle actually loads in Codex (no model call; needs codex installed)
-agent-skill-bundler verify ./dist/codex/spec-forge
+agent-skill-bundler verify ./out/codex/spec-forge
 
 # install a bundle into Codex (symlink; Codex follows it for discovery)
-agent-skill-bundler install ./dist/codex/spec-forge          # -> ~/.agents/skills/spec-forge
-agent-skill-bundler install ./dist/codex/spec-forge --codex-home /tmp/test
+agent-skill-bundler install ./out/codex/spec-forge          # -> ~/.agents/skills/spec-forge
+agent-skill-bundler install ./out/codex/spec-forge --codex-home /tmp/test
 ```
 
 In Codex: restart, then `/skills` or name a skill, e.g. `spec-forge:prd`.

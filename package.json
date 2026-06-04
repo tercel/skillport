@@ -1,7 +1,7 @@
 {
   "name": "agent-skill-bundler",
   "version": "0.2.0",
-  "description": "Port Claude Code skill plugins to other agent platforms (Codex now; Gemini/OpenCode/Cursor via target adapters) — namespace-prefixed flat skills, inlined shared includes, cross-plugin reference rewriting, and self-enforced conversion gates.",
+  "description": "Port Claude Code skill plugins to other agent platforms — Codex is the implemented target, with a target-agnostic pipeline ready for more adapters. Produces namespace-prefixed flat skills, inlined shared includes, cross-plugin reference rewriting, and self-enforced conversion gates.",
   "type": "module",
   "bin": {
     "agent-skill-bundler": "./dist/index.js"
@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "npm run build && node --test test/*.test.mjs",
-    "convert": "node dist/index.js convert"
+    "convert": "node dist/index.js convert",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "claude-code",
@@ -26,6 +27,14 @@
   ],
   "author": "tercel",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tercel/agent-skill-bundler.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tercel/agent-skill-bundler/issues"
+  },
+  "homepage": "https://github.com/tercel/agent-skill-bundler#readme",
   "engines": {
     "node": ">=20"
   },
